@@ -1,0 +1,22 @@
+{
+  "titulo": "Debate europeu sobre tarifas reacende pressão sobre cadeias globais de produção",
+  "resumo": "A retomada das discussões tarifárias na Europa reacendeu alertas sobre custos industriais, logística internacional e reflexos econômicos em países parceiros.",
+  "data": "2026-04-26",
+  "categoria": "Globalização",
+  "subcategoria": "Europa",
+  "imagemCapa": "imagens/capa-europa-tarifas.png",
+  "conteudo": [
+    {
+      "tipo": "texto",
+      "arquivo": "paragrafos/p1.txt"
+    },
+    {
+      "tipo": "titulo",
+      "texto": "Por que isso importa localmente"
+    },
+    {
+      "tipo": "texto",
+      "arquivo": "paragrafos/p2.txt"
+    }
+  ]
+}

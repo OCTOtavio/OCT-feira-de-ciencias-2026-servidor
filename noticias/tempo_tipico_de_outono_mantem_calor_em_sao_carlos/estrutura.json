@@ -1,0 +1,22 @@
+{
+  "titulo": "Tempo típico de outono mantém calor moderado e chance de chuva isolada em São Carlos",
+  "resumo": "São Carlos segue com calor moderado, manhãs amenas e possibilidade de pancadas isoladas, cenário que afeta transporte escolar, atividades ao ar livre e planejamento das famílias.",
+  "data": "2026-04-27",
+  "categoria": "Clima em Foco",
+  "subcategoria": "",
+  "imagemCapa": "imagens/capa-clima-sao-carlos.png",
+  "conteudo": [
+    {
+      "tipo": "texto",
+      "arquivo": "paragrafos/p1.txt"
+    },
+    {
+      "tipo": "titulo",
+      "texto": "Impacto no entorno da escola"
+    },
+    {
+      "tipo": "texto",
+      "arquivo": "paragrafos/p2.txt"
+    }
+  ]
+}
