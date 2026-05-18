@@ -15,15 +15,39 @@
 
             "Noticias": [
                 {
-                    "id": 1,
-                    "titulo": "IA controla previsão climática global",
-                    "categoria": "Tecnologia",
-                    "autor": "OCT News IA",
-                    "data": "2089-05-18",
-                    "imagem": "imgs/ia-clima.jpg",
-                    "conteudo": "Texto da notícia..."
+                    "slug": "tempo_tipico_de_outono_mantem_calor_em_sao_carlos",
+                    "pasta": "noticias/tempo_tipico_de_outono_mantem_calor_em_sao_carlos",
+                    "estrutura": "noticias/tempo_tipico_de_outono_mantem_calor_em_sao_carlos/estrutura.json",
+                    "titulo": "Tempo típico de outono mantém calor moderado e chance de chuva isolada em São Carlos",
+                    "resumo": "São Carlos segue com calor moderado, manhãs amenas e possibilidade de pancadas isoladas, cenário que afeta transporte escolar, atividades ao ar livre e planejamento das famílias.",
+                    "data": "2026-04-27",
+                    "categoria": "Clima em Foco",
+                    "subcategoria": "",
+                    "imagemCapa": "imagens/capa-clima-sao-carlos.png"
+                },
+                {
+                    "slug": "debate_europeu_sobre_tarifas_reacende_pressao_na_industria",
+                    "pasta": "noticias/debate_europeu_sobre_tarifas_reacende_pressao_na_industria",
+                    "estrutura": "noticias/debate_europeu_sobre_tarifas_reacende_pressao_na_industria/estrutura.json",
+                    "titulo": "Debate europeu sobre tarifas reacende pressão sobre cadeias globais de produção",
+                    "resumo": "A retomada das discussões tarifárias na Europa reacendeu alertas sobre custos industriais, logística internacional e reflexos econômicos em países parceiros.",
+                    "data": "2026-04-26",
+                    "categoria": "Globalização",
+                    "subcategoria": "Europa",
+                    "imagemCapa": "imagens/capa-europa-tarifas.png"
+                },
+                {
+                    "slug": "incendio_proximo_ao_rodeio_mobiliza_ibate",
+                    "pasta": "noticias/incendio_proximo_ao_rodeio_mobiliza_ibate",
+                    "estrutura": "noticias/incendio_proximo_ao_rodeio_mobiliza_ibate/estrutura.json",
+                    "titulo": "Incêndio próximo ao recinto de rodeio mobiliza equipes e preocupa moradores em Ibaté",
+                        "resumo": "Um incêndio em área de vegetação próximo ao recinto de rodeio de Ibaté mobilizou equipes de emergência e acendeu o alerta para o tempo seco na região.",
+                    "data": "2026-04-20",
+                    "categoria": "Casos Policiais",
+                    "subcategoria": "",
+                    "imagemCapa": "imagens/capa-incendio-ibate.png"
                 }
-            ]
+            ] 
         },
 
         "Presente": {
