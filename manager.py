@@ -248,6 +248,11 @@ class App(ctk.CTk):
         self.preencher_site_form()
         self.atualizar_listas_noticias()
         self.preparar_nova_noticia()
+        
+        self.protocol(
+            "WM_DELETE_WINDOW",
+            self.on_close
+        )
 
     def criar_layout(self):
         self.header = ctk.CTkFrame(self, corner_radius=0)
@@ -755,15 +760,39 @@ class App(ctk.CTk):
             self.news_status_var.set("Informe um titulo antes de criar a noticia.")
             return False
 
-        pasta = BASE_DIR / slugify(titulo)
+        slug = slugify(titulo)
+        pasta = BASE_DIR / slug
+
+        contador = 2
+        while pasta.exists():
+            pasta = BASE_DIR / f"{slug}_{contador}"
+            contador += 1
+
         preparar_pasta_noticia(pasta)
+
         self.current_news_path = pasta
         self.current_news = criar_estrutura_padrao(titulo)
-        self.current_news["resumo"] = self.news_summary_box.get("1.0", "end").strip()
-        self.current_news["data"] = self.news_date_entry.get().strip() or hoje_iso()
-        self.current_news["categoria"] = self.news_category_var.get().strip()
-        self.current_news["subcategoria"] = self.subcategoria_atual_limpa()
-        self.current_news["imagemCapa"] = self.news_cover_entry.get().strip()
+
+        self.current_news["resumo"] = (
+            self.news_summary_box.get("1.0", "end").strip()
+        )
+
+        self.current_news["data"] = (
+            self.news_date_entry.get().strip() or hoje_iso()
+        )
+
+        self.current_news["categoria"] = (
+            self.news_category_var.get().strip()
+        )
+
+        self.current_news["subcategoria"] = (
+            self.subcategoria_atual_limpa()
+        )
+
+        self.current_news["imagemCapa"] = (
+            self.news_cover_entry.get().strip()
+        )
+
         self.salvar_noticia_corrente()
         return True
 
@@ -822,25 +851,79 @@ class App(ctk.CTk):
     def salvar_noticia_corrente(self):
         if not self.current_news or not self.current_news_path:
             return
-        salvar_estrutura_em_disco(self.current_news_path, self.current_news)
-        self.selected_news_slug = slugify(self.current_news_path.name)
+
+        preparar_pasta_noticia(self.current_news_path)
+
+        salvar_estrutura_em_disco(
+            self.current_news_path,
+            self.current_news
+        )
+
+        self.selected_news_slug = slugify(
+            self.current_news_path.name
+        )
+
         sincronizar_noticias()
+
         self.atualizar_listas_noticias()
 
     def salvar_metadados_noticia(self):
         if not self.garantir_noticia_corrente():
             return
 
-        self.current_news["titulo"] = self.news_title_entry.get().strip()
-        self.current_news["resumo"] = self.news_summary_box.get("1.0", "end").strip()
-        self.current_news["data"] = self.news_date_entry.get().strip() or hoje_iso()
-        self.current_news["categoria"] = self.news_category_var.get().strip()
-        self.current_news["subcategoria"] = self.subcategoria_atual_limpa()
-        self.current_news["imagemCapa"] = self.news_cover_entry.get().strip()
+        titulo_antigo = self.current_news.get("titulo", "")
+        pasta_antiga = self.current_news_path
+
+        novo_titulo = self.news_title_entry.get().strip()
+
+        # ==========================================
+        # RENOMEAR PASTA SE O TITULO MUDAR
+        # ==========================================
+
+        if novo_titulo and novo_titulo != titulo_antigo:
+            novo_slug = slugify(novo_titulo)
+            nova_pasta = BASE_DIR / novo_slug
+
+            contador = 2
+            while nova_pasta.exists() and nova_pasta != pasta_antiga:
+                nova_pasta = BASE_DIR / f"{novo_slug}_{contador}"
+                contador += 1
+
+            if nova_pasta != pasta_antiga:
+                pasta_antiga.rename(nova_pasta)
+                self.current_news_path = nova_pasta
+
+        # ==========================================
+        # SALVAR DADOS
+        # ==========================================
+
+        self.current_news["titulo"] = novo_titulo
+        self.current_news["resumo"] = (
+            self.news_summary_box.get("1.0", "end").strip()
+        )
+
+        self.current_news["data"] = (
+            self.news_date_entry.get().strip() or hoje_iso()
+        )
+
+        self.current_news["categoria"] = (
+            self.news_category_var.get().strip()
+        )
+
+        self.current_news["subcategoria"] = (
+            self.subcategoria_atual_limpa()
+        )
+
+        self.current_news["imagemCapa"] = (
+            self.news_cover_entry.get().strip()
+        )
+
         self.salvar_noticia_corrente()
+
         self.news_status_var.set(
             f"Metadados salvos para: {self.current_news.get('titulo', '')}"
         )
+
         self.atualizar_preview()
 
     def selecionar_capa_noticia(self):
@@ -913,24 +996,60 @@ class App(ctk.CTk):
             return
 
         caminho = filedialog.askopenfilename()
+
         if not caminho:
             return
 
         tipo = self.block_type_var.get()
+
         origem = Path(caminho)
         nome = origem.name
 
+        # ==========================================
+        # DEFINIR DESTINO
+        # ==========================================
+
         if tipo == "imagem":
-            destino = self.current_news_path / "imagens" / nome
+
+            pasta = self.current_news_path / "imagens"
             relativo = f"imagens/{nome}"
+
         elif tipo in {"video", "audio"}:
-            destino = self.current_news_path / "midia" / nome
+
+            pasta = self.current_news_path / "midia"
             relativo = f"midia/{nome}"
+
         else:
-            destino = self.current_news_path / "documentos" / nome
+
+            pasta = self.current_news_path / "documentos"
             relativo = f"documentos/{nome}"
 
+        pasta.mkdir(exist_ok=True)
+
+        destino = pasta / nome
+
+        # ==========================================
+        # EVITAR SOBRESCRITA
+        # ==========================================
+
+        contador = 2
+
+        while destino.exists():
+
+            novo_nome = (
+                f"{origem.stem}_{contador}{origem.suffix}"
+            )
+
+            destino = pasta / novo_nome
+
+            relativo = (
+                f"{pasta.name}/{novo_nome}"
+            )
+
+            contador += 1
+
         shutil.copy(origem, destino)
+
         self.block_editor.delete("1.0", "end")
         self.block_editor.insert("1.0", relativo)
 
@@ -940,39 +1059,122 @@ class App(ctk.CTk):
 
         tipo = self.block_type_var.get()
         valor = self.block_editor.get("1.0", "end").strip()
+
         if not valor:
-            self.block_status_var.set("Informe o conteudo do bloco antes de adicionar.")
+            self.block_status_var.set(
+                "Informe o conteudo do bloco antes de adicionar."
+            )
             return
 
+        # ==========================================
+        # TEXTO
+        # ==========================================
+
         if tipo == "texto":
-            numero = sum(1 for item in self.current_news["conteudo"] if item["tipo"] == "texto") + 1
-            arquivo = f"paragrafos/p{numero}.txt"
-            (self.current_news_path / arquivo).write_text(valor, encoding="utf-8")
-            self.current_news["conteudo"].append({"tipo": "texto", "arquivo": arquivo})
-        elif tipo == "titulo":
-            self.current_news["conteudo"].append({"tipo": "titulo", "texto": valor})
-        elif tipo == "imagem":
-            self.current_news["conteudo"].append(
-                {"tipo": "imagem", "arquivo": valor, "legenda": "Imagem"}
-            )
-            if not self.current_news.get("imagemCapa"):
-                self.current_news["imagemCapa"] = valor
-                self.news_cover_entry.delete(0, "end")
-                self.news_cover_entry.insert(0, valor)
-        elif tipo == "video":
-            self.current_news["conteudo"].append({"tipo": "video", "arquivo": valor})
-        elif tipo == "audio":
-            self.current_news["conteudo"].append({"tipo": "audio", "arquivo": valor})
-        elif tipo == "documento":
-            self.current_news["conteudo"].append(
-                {"tipo": "documento", "arquivo": valor, "legenda": "Abrir documento"}
+
+            existentes = []
+
+            for item in self.current_news["conteudo"]:
+                if item.get("tipo") != "texto":
+                    continue
+
+                arquivo = Path(item.get("arquivo", "")).stem
+
+                if arquivo.startswith("p"):
+                    try:
+                        existentes.append(int(arquivo[1:]))
+                    except ValueError:
+                        pass
+
+            proximo = max(existentes, default=0) + 1
+
+            arquivo = f"paragrafos/p{proximo}.txt"
+
+            (self.current_news_path / arquivo).write_text(
+                valor,
+                encoding="utf-8"
             )
 
+            self.current_news["conteudo"].append({
+                "tipo": "texto",
+                "arquivo": arquivo
+            })
+
+        # ==========================================
+        # TITULO
+        # ==========================================
+
+        elif tipo == "titulo":
+
+            self.current_news["conteudo"].append({
+                "tipo": "titulo",
+                "texto": valor
+            })
+
+        # ==========================================
+        # IMAGEM
+        # ==========================================
+
+        elif tipo == "imagem":
+
+            self.current_news["conteudo"].append({
+                "tipo": "imagem",
+                "arquivo": valor,
+                "legenda": "Imagem"
+            })
+
+            if not self.current_news.get("imagemCapa"):
+                self.current_news["imagemCapa"] = valor
+
+                self.news_cover_entry.delete(0, "end")
+                self.news_cover_entry.insert(0, valor)
+
+        # ==========================================
+        # VIDEO
+        # ==========================================
+
+        elif tipo == "video":
+
+            self.current_news["conteudo"].append({
+                "tipo": "video",
+                "arquivo": valor
+            })
+
+        # ==========================================
+        # AUDIO
+        # ==========================================
+
+        elif tipo == "audio":
+
+            self.current_news["conteudo"].append({
+                "tipo": "audio",
+                "arquivo": valor
+            })
+
+        # ==========================================
+        # DOCUMENTO
+        # ==========================================
+
+        elif tipo == "documento":
+
+            self.current_news["conteudo"].append({
+                "tipo": "documento",
+                "arquivo": valor,
+                "legenda": "Abrir documento"
+            })
+
         self.current_block_index = None
+
         self.block_editor.delete("1.0", "end")
+
         self.block_type_var.set("texto")
+
         self.salvar_noticia_corrente()
-        self.block_status_var.set("Novo bloco adicionado com sucesso.")
+
+        self.block_status_var.set(
+            "Novo bloco adicionado com sucesso."
+        )
+
         self.refresh_block_list()
         self.atualizar_preview()
 
@@ -997,24 +1199,70 @@ class App(ctk.CTk):
 
     def remover_bloco_atual(self):
         if self.current_block_index is None or not self.current_news:
-            self.block_status_var.set("Selecione um bloco antes de remover.")
+            self.block_status_var.set(
+                "Selecione um bloco antes de remover."
+            )
             return
 
-        item = self.current_news["conteudo"].pop(self.current_block_index)
+        item = self.current_news["conteudo"].pop(
+            self.current_block_index
+        )
+
+        # ==========================================
+        # REMOVER ARQUIVO DE TEXTO
+        # ==========================================
+
         if item.get("tipo") == "texto":
+
             caminho = self.current_news_path / item.get("arquivo", "")
+
             if caminho.exists():
                 caminho.unlink()
 
-        if item.get("tipo") == "imagem" and self.current_news.get("imagemCapa") == item.get("arquivo"):
+        # ==========================================
+        # REMOVER MIDIA
+        # ==========================================
+
+        elif item.get("tipo") in {
+            "imagem",
+            "video",
+            "audio",
+            "documento"
+        }:
+
+            caminho = self.current_news_path / item.get("arquivo", "")
+
+            if caminho.exists():
+                try:
+                    caminho.unlink()
+                except OSError:
+                    pass
+
+        # ==========================================
+        # REMOVER CAPA
+        # ==========================================
+
+        if (
+            item.get("tipo") == "imagem"
+            and self.current_news.get("imagemCapa")
+            == item.get("arquivo")
+        ):
             self.current_news["imagemCapa"] = ""
+
             self.news_cover_entry.delete(0, "end")
 
         self.current_block_index = None
+
         self.block_editor.delete("1.0", "end")
+
         self.block_type_var.set("texto")
+
         self.salvar_noticia_corrente()
-        self.block_status_var.set("Bloco removido com sucesso.")
+
+        self.block_status_var.set(
+            "Bloco removido com sucesso."
+        )
+
         self.refresh_block_list()
         self.atualizar_preview()
 
@@ -1119,6 +1367,10 @@ class App(ctk.CTk):
                     font=("Arial", 15),
                     text_color="gray",
                 ).pack(anchor="w", pady=8)
+                
+    def on_close(self):
+        sincronizar_noticias()
+        self.destroy()
 
 
 if __name__ == "__main__":
