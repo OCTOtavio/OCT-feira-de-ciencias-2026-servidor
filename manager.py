@@ -1,16 +1,20 @@
 import json
 import shutil
 import unicodedata
+import re
+import unicodedata
 from datetime import date
 from pathlib import Path
 
 import customtkinter as ctk
 from PIL import Image
 from tkinter import filedialog
+from copy import deepcopy
 
 BASE_DIR = Path("noticias")
 LISTA_JSON = Path("noticias.json")
 CONFIG_JSON = Path("config.json")
+SERVER_JSON = Path("server.json")
 
 ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("blue")
@@ -51,12 +55,35 @@ DEFAULT_CONFIG = {
 
 
 def slugify(texto):
-    texto = unicodedata.normalize("NFKD", texto)
-    texto = "".join(char for char in texto if not unicodedata.combining(char))
-    texto = texto.replace("/", " ").replace("\\", " ")
-    partes = [parte for parte in texto.lower().strip().split() if parte]
-    return "_".join(partes) or "noticia"
 
+    texto = unicodedata.normalize(
+        "NFKD",
+        str(texto)
+    )
+
+    texto = "".join(
+        char
+        for char in texto
+        if not unicodedata.combining(char)
+    )
+
+    texto = texto.lower()
+
+    texto = re.sub(
+        r"[^\w\s-]",
+        "",
+        texto
+    )
+
+    texto = re.sub(
+        r"[-\s]+",
+        "_",
+        texto
+    )
+
+    texto = texto.strip("_")
+
+    return texto or "noticia"
 
 def caminho_relativo(caminho):
     return Path(caminho).as_posix()
@@ -66,50 +93,145 @@ def hoje_iso():
     return date.today().isoformat()
 
 
-def carregar_json(caminho, fallback):
-    if not caminho.exists():
-        return fallback
-    try:
-        with caminho.open("r", encoding="utf-8") as f:
-            return json.load(f)
-    except (OSError, json.JSONDecodeError):
-        return fallback
+from copy import deepcopy
 
+def carregar_json(caminho, fallback):
+
+    if not caminho.exists():
+        return deepcopy(fallback)
+
+    try:
+
+        with caminho.open(
+            "r",
+            encoding="utf-8"
+        ) as f:
+
+            return json.load(f)
+
+    except (
+        OSError,
+        json.JSONDecodeError
+    ):
+
+        return deepcopy(fallback)
 
 def salvar_json(caminho, data):
-    with caminho.open("w", encoding="utf-8") as f:
-        json.dump(data, f, indent=2, ensure_ascii=False)
 
+    caminho = Path(caminho)
 
-def normalizar_config(config):
-    base = DEFAULT_CONFIG.copy()
-    base.update({key: value for key, value in config.items() if key != "Categorias"})
+    caminho.parent.mkdir(
+        parents=True,
+        exist_ok=True
+    )
 
-    categorias = config.get("Categorias", DEFAULT_CONFIG["Categorias"])
-    categorias_limpas = []
-    for item in categorias:
-        nome = str(item.get("Categoria", "")).strip()
-        if not nome:
-            continue
-        subcategorias = [
-            str(sub).strip()
-            for sub in item.get("Subcategorias", [])
-            if str(sub).strip()
-        ]
-        categorias_limpas.append(
-            {"Categoria": nome, "Subcategorias": subcategorias}
+    with caminho.open(
+        "w",
+        encoding="utf-8"
+    ) as f:
+
+        json.dump(
+            data,
+            f,
+            indent=2,
+            ensure_ascii=False
         )
 
+def normalizar_config(config):
+
+    base = deepcopy(DEFAULT_CONFIG)
+
+    base.update({
+        key: value
+        for key, value in config.items()
+        if key != "Categorias"
+    })
+
+    categorias = config.get(
+        "Categorias",
+        DEFAULT_CONFIG["Categorias"]
+    )
+
+    categorias_limpas = []
+
+    for item in categorias:
+
+        nome = str(
+            item.get("Categoria", "")
+        ).strip()
+
+        if not nome:
+            continue
+
+        subcategorias = []
+
+        for sub in item.get("Subcategorias", []):
+
+            sub = str(sub).strip()
+
+            if sub and sub not in subcategorias:
+                subcategorias.append(sub)
+
+        categorias_limpas.append({
+            "Categoria": nome,
+            "Subcategorias": subcategorias
+        })
+
     if not categorias_limpas:
-        categorias_limpas = DEFAULT_CONFIG["Categorias"]
+        categorias_limpas = deepcopy(
+            DEFAULT_CONFIG["Categorias"]
+        )
 
     base["Categorias"] = categorias_limpas
+
     return base
 
 
 def carregar_config():
     return normalizar_config(carregar_json(CONFIG_JSON, DEFAULT_CONFIG))
 
+def carregar_server():
+
+    estrutura_padrao = {
+        "OCT-News": {
+            "ConfigGeral": {
+                "tema": "futuristico",
+                "versao": "1.0",
+                "idioma": "pt-br"
+            },
+
+            "Presente": {
+                "Config": {
+                    "nome": "Clima em Foco",
+                    "cor": "#3498db",
+                    "estilo": "moderno"
+                },
+
+                "Noticias": []
+            },
+
+            "Futuro": {
+                "Config": {
+                    "nome": "ClimaX",
+                    "cor": "#00ffff",
+                    "estilo": "cyberpunk"
+                },
+
+                "Noticias": []
+            }
+        }
+    }
+
+    return carregar_json(
+        SERVER_JSON,
+        estrutura_padrao
+    )
+
+def salvar_server(server_data):
+    salvar_json(
+        SERVER_JSON,
+        server_data
+    )
 
 def salvar_config(config):
     salvar_json(CONFIG_JSON, normalizar_config(config))
@@ -148,37 +270,161 @@ def preparar_pasta_noticia(pasta):
 
 
 def listar_noticias_publicadas():
+
     noticias = []
+
     if not BASE_DIR.exists():
         return noticias
 
     for estrutura_path in BASE_DIR.glob("*/estrutura.json"):
-        estrutura = carregar_estrutura(estrutura_path)
-        if not estrutura:
+
+        estrutura = carregar_estrutura(
+            estrutura_path
+        )
+
+        if not isinstance(estrutura, dict):
             continue
 
         pasta = estrutura_path.parent
-        noticias.append(
-            {
-                "slug": slugify(pasta.name),
-                "pasta": caminho_relativo(pasta),
-                "estrutura": caminho_relativo(estrutura_path),
-                "titulo": estrutura.get("titulo", pasta.name),
-                "resumo": estrutura.get("resumo", ""),
-                "data": estrutura.get("data", ""),
-                "categoria": estrutura.get("categoria", ""),
-                "subcategoria": estrutura.get("subcategoria", ""),
-                "imagemCapa": estrutura.get("imagemCapa", ""),
-            }
+
+        titulo = estrutura.get(
+            "titulo",
+            pasta.name
         )
 
-    noticias.sort(key=lambda item: item.get("data", ""), reverse=True)
+        noticias.append({
+
+            "slug": pasta.name,
+
+            "pasta": caminho_relativo(
+                pasta
+            ),
+
+            "estrutura": caminho_relativo(
+                estrutura_path
+            ),
+
+            "titulo": titulo,
+
+            "resumo": estrutura.get(
+                "resumo",
+                ""
+            ),
+
+            "data": estrutura.get(
+                "data",
+                ""
+            ),
+
+            "categoria": estrutura.get(
+                "categoria",
+                ""
+            ),
+
+            "subcategoria": estrutura.get(
+                "subcategoria",
+                ""
+            ),
+
+            "imagemCapa": estrutura.get(
+                "imagemCapa",
+                ""
+            ),
+        })
+
+    noticias.sort(
+        key=lambda item: item.get("data", ""),
+        reverse=True
+    )
+
     return noticias
+
+def sincronizar_server_presente():
+
+    noticias = listar_noticias_publicadas()
+
+    server = carregar_server()
+
+    # ==================================================
+    # GARANTIR ESTRUTURA
+    # ==================================================
+
+    if "OCT-News" not in server:
+        server["OCT-News"] = {}
+
+    if "Presente" not in server["OCT-News"]:
+        server["OCT-News"]["Presente"] = {}
+
+    if "Config" not in server["OCT-News"]["Presente"]:
+        server["OCT-News"]["Presente"]["Config"] = {
+            "nome": "Clima em Foco",
+            "cor": "#3498db",
+            "estilo": "moderno"
+        }
+
+    # ==================================================
+    # SINCRONIZAR NOTICIAS
+    # ==================================================
+
+    server["OCT-News"]["Presente"]["Noticias"] = noticias
+
+    salvar_server(server)
+
+def sincronizar_config_server(config):
+
+    server = carregar_server()
+
+    if "OCT-News" not in server:
+        server["OCT-News"] = {}
+
+    if "Presente" not in server["OCT-News"]:
+        server["OCT-News"]["Presente"] = {}
+
+    server["OCT-News"]["Presente"]["Config"] = {
+
+        "nome": config.get("Nome", "OCT News"),
+
+        "descricao": config.get("Descricao", ""),
+
+        "heroTitulo": config.get("HeroTitulo", ""),
+
+        "heroResumo": config.get("HeroResumo", ""),
+
+        "rodape": config.get("Rodape", ""),
+
+        "icone": config.get("Icone", "favicon.ico"),
+
+        "escola": config.get("Escola", ""),
+
+        "categorias": config.get("Categorias", []),
+
+        "cor": "#3498db",
+
+        "estilo": "moderno"
+    }
+
+    salvar_server(server)
 
 
 def sincronizar_noticias():
+
     noticias = listar_noticias_publicadas()
-    salvar_json(LISTA_JSON, noticias)
+
+    # ==========================================
+    # noticias.json
+    # ==========================================
+
+    salvar_json(
+        LISTA_JSON,
+        noticias
+    )
+
+    # ==========================================
+    # server.json
+    # ==========================================
+
+    sincronizar_server_presente()
+
     return noticias
 
 
@@ -199,10 +445,21 @@ def subcategorias_da_categoria(config, categoria):
 
 def descricao_bloco(item, indice):
     tipo = item.get("tipo", "bloco").upper()
-    detalhe = item.get("arquivo", "") if item.get("tipo") != "titulo" else item.get("texto", "")
+
+    if item.get("tipo") == "titulo":
+        detalhe = item.get("texto", "")
+
+    elif item.get("tipo") == "texto":
+        detalhe = item.get("arquivo", "")
+
+    else:
+        detalhe = item.get("arquivo", "")
+
     detalhe = detalhe.replace("\n", " ").strip()
+
     if len(detalhe) > 58:
         detalhe = detalhe[:55] + "..."
+
     return f"{indice + 1:02d}. {tipo} - {detalhe or 'sem conteudo'}"
 
 
@@ -239,6 +496,7 @@ class App(ctk.CTk):
         self.current_block_index = None
         self.selected_news_slug = None
         self.selected_site_category_index = None
+        self.preview_images = []
 
         self.title(f"{self.config_data['Nome']} - Manager")
         self.geometry("1560x920")
@@ -567,7 +825,10 @@ class App(ctk.CTk):
         ctk.CTkLabel(preview, text="Pre-visualizacao", font=("Arial", 24, "bold")).pack(
             anchor="w", padx=16, pady=(18, 10)
         )
-        self.preview_box = ctk.CTkScrollableFrame(preview)
+        self.preview_box = ctk.CTkScrollableFrame(
+            preview,
+            fg_color="#181818"
+        )
         self.preview_box.pack(fill="both", expand=True, padx=14, pady=(0, 14))
 
     def categorias_disponiveis_para_menu(self):
@@ -675,20 +936,69 @@ class App(ctk.CTk):
         self.refresh_category_menus()
 
     def salvar_config_site(self):
-        self.config_data["Nome"] = self.site_name_entry.get().strip() or DEFAULT_CONFIG["Nome"]
-        self.config_data["Icone"] = self.site_icon_entry.get().strip() or DEFAULT_CONFIG["Icone"]
-        self.config_data["Escola"] = self.site_school_entry.get().strip() or DEFAULT_CONFIG["Escola"]
-        self.config_data["Descricao"] = self.site_description_box.get("1.0", "end").strip()
-        self.config_data["HeroTitulo"] = self.site_hero_title_entry.get().strip()
-        self.config_data["HeroResumo"] = self.site_hero_summary_box.get("1.0", "end").strip()
-        self.config_data["Rodape"] = self.site_footer_entry.get().strip()
-        self.config_data = normalizar_config(self.config_data)
-        salvar_config(self.config_data)
-        self.header_title.configure(text=f"{self.config_data['Nome']} - painel de administracao")
-        self.title(f"{self.config_data['Nome']} - Manager")
+
+        self.config_data["Nome"] = (
+            self.site_name_entry.get().strip()
+            or DEFAULT_CONFIG["Nome"]
+        )
+
+        self.config_data["Icone"] = (
+            self.site_icon_entry.get().strip()
+            or DEFAULT_CONFIG["Icone"]
+        )
+
+        self.config_data["Escola"] = (
+            self.site_school_entry.get().strip()
+            or DEFAULT_CONFIG["Escola"]
+        )
+
+        self.config_data["Descricao"] = (
+            self.site_description_box.get("1.0", "end").strip()
+        )
+
+        self.config_data["HeroTitulo"] = (
+            self.site_hero_title_entry.get().strip()
+        )
+
+        self.config_data["HeroResumo"] = (
+            self.site_hero_summary_box.get("1.0", "end").strip()
+        )
+
+        self.config_data["Rodape"] = (
+            self.site_footer_entry.get().strip()
+        )
+
+        self.config_data = normalizar_config(
+            self.config_data
+        )
+
+        salvar_config(
+            self.config_data
+        )
+
+        # ==========================================
+        # SINCRONIZAR SERVER
+        # ==========================================
+
+        sincronizar_config_server(
+            self.config_data
+        )
+
+        self.header_title.configure(
+            text=f"{self.config_data['Nome']} - painel de administracao"
+        )
+
+        self.title(
+            f"{self.config_data['Nome']} - Manager"
+        )
+
         self.refresh_site_categories()
+
         self.refresh_category_menus()
-        self.site_status_var.set("config.json salvo com sucesso.")
+
+        self.site_status_var.set(
+            "config.json e server.json salvos com sucesso."
+        )
 
     def refresh_category_menus(self):
         categorias = self.categorias_disponiveis_para_menu()
@@ -945,30 +1255,51 @@ class App(ctk.CTk):
         self.atualizar_preview()
 
     def refresh_block_list(self):
+
         for widget in self.block_list_frame.winfo_children():
             widget.destroy()
 
         if not self.current_news:
+
             ctk.CTkLabel(
                 self.block_list_frame,
                 text="Nenhuma noticia carregada.",
                 text_color="gray",
             ).pack(anchor="w", padx=10, pady=10)
+
             return
 
         conteudo = self.current_news.get("conteudo", [])
+
         if not conteudo:
+
             ctk.CTkLabel(
                 self.block_list_frame,
                 text="Ainda nao ha blocos nesta noticia.",
                 text_color="gray",
             ).pack(anchor="w", padx=10, pady=10)
+
             return
 
         for indice, item in enumerate(conteudo):
+
             ativo = indice == self.current_block_index
-            button = ctk.CTkButton(
+
+            row = ctk.CTkFrame(
                 self.block_list_frame,
+                fg_color="#1f1f1f"
+            )
+
+            row.pack(
+                fill="x",
+                padx=6,
+                pady=4
+            )
+
+            row.grid_columnconfigure(0, weight=1)
+
+            button = ctk.CTkButton(
+                row,
                 text=descricao_bloco(item, indice),
                 anchor="w",
                 command=lambda idx=indice: self.selecionar_bloco(idx),
@@ -976,19 +1307,59 @@ class App(ctk.CTk):
                 hover_color="#1a517b" if ativo else "#3a3a3a",
                 height=34,
             )
-            button.pack(fill="x", padx=6, pady=4)
+
+            button.grid(
+                row=0,
+                column=0,
+                sticky="ew",
+                padx=(0, 6)
+            )
+
+            up_btn = ctk.CTkButton(
+                row,
+                text="↑",
+                width=34,
+                command=lambda idx=indice: self.mover_bloco(idx, -1)
+            )
+
+            up_btn.grid(row=0, column=1, padx=2)
+
+            down_btn = ctk.CTkButton(
+                row,
+                text="↓",
+                width=34,
+                command=lambda idx=indice: self.mover_bloco(idx, 1)
+            )
+
+            down_btn.grid(row=0, column=2, padx=2)
 
     def selecionar_bloco(self, indice):
+
         if not self.current_news:
             return
+
         item = self.current_news["conteudo"][indice]
+
         self.current_block_index = indice
-        self.block_type_var.set(item.get("tipo", "texto"))
+
+        self.block_type_var.set(
+            item.get("tipo", "texto")
+        )
+
         self.block_editor.delete("1.0", "end")
-        self.block_editor.insert("1.0", ler_conteudo_item(self.current_news_path, item))
+
+        self.block_editor.insert(
+            "1.0",
+            ler_conteudo_item(
+                self.current_news_path,
+                item
+            )
+        )
+
         self.block_status_var.set(
             f"Editando o bloco {indice + 1}: {item.get('tipo', 'desconhecido')}."
         )
+
         self.refresh_block_list()
 
     def selecionar_arquivo_bloco(self):
@@ -1266,6 +1637,31 @@ class App(ctk.CTk):
         self.refresh_block_list()
         self.atualizar_preview()
 
+    def mover_bloco(self, indice, direcao):
+
+        if not self.current_news:
+            return
+
+        novo_indice = indice + direcao
+
+        conteudo = self.current_news.get("conteudo", [])
+
+        if novo_indice < 0 or novo_indice >= len(conteudo):
+            return
+
+        conteudo[indice], conteudo[novo_indice] = (
+            conteudo[novo_indice],
+            conteudo[indice]
+        )
+
+        self.current_block_index = novo_indice
+
+        self.salvar_noticia_corrente()
+
+        self.refresh_block_list()
+
+        self.atualizar_preview()
+
     def excluir_noticia_atual(self):
         if not self.current_news_path:
             self.news_status_var.set("Nenhuma noticia carregada para exclusao.")
@@ -1281,92 +1677,245 @@ class App(ctk.CTk):
         self.atualizar_listas_noticias()
 
     def atualizar_preview(self):
+
+        self.preview_images.clear()
+
         for widget in self.preview_box.winfo_children():
             widget.destroy()
 
         if not self.current_news:
+
             ctk.CTkLabel(
                 self.preview_box,
                 text="Nenhuma noticia carregada para pre-visualizacao.",
                 text_color="gray",
             ).pack(anchor="w", padx=12, pady=12)
+
             return
+
+        # =====================================================
+        # TITULO
+        # =====================================================
 
         ctk.CTkLabel(
             self.preview_box,
             text=self.current_news.get("titulo", "Sem titulo"),
-            font=("Arial", 30, "bold"),
+            font=("Arial", 32, "bold"),
             wraplength=780,
             justify="left",
-        ).pack(anchor="w", pady=(10, 5))
+        ).pack(anchor="w", pady=(10, 8))
+
+        # =====================================================
+        # META
+        # =====================================================
 
         meta = (
             f"{self.current_news.get('categoria', 'Sem categoria')}"
             + (
-                f" ({self.current_news.get('subcategoria')})"
+                f" • {self.current_news.get('subcategoria')}"
                 if self.current_news.get("subcategoria")
                 else ""
             )
-            + f" - {self.current_news.get('data', '')}"
+            + f" • {self.current_news.get('data', '')}"
         )
+
         ctk.CTkLabel(
             self.preview_box,
             text=meta,
             font=("Arial", 14),
             text_color="gray",
-        ).pack(anchor="w", pady=(0, 8))
-
-        ctk.CTkLabel(
-            self.preview_box,
-            text=self.current_news.get("resumo", ""),
-            font=("Arial", 16),
-            text_color="gray",
-            wraplength=780,
-            justify="left",
         ).pack(anchor="w", pady=(0, 12))
 
+        # =====================================================
+        # RESUMO
+        # =====================================================
+
+        resumo = self.current_news.get("resumo", "").strip()
+
+        if resumo:
+
+            ctk.CTkLabel(
+                self.preview_box,
+                text=resumo,
+                wraplength=780,
+                justify="left",
+                font=("Arial", 18),
+                text_color="#cfcfcf",
+            ).pack(anchor="w", pady=(0, 18))
+
+        # =====================================================
+        # CAPA
+        # =====================================================
+
         capa = self.current_news.get("imagemCapa", "")
+
         if capa:
+
             path = self.current_news_path / capa
+
             if path.exists():
+
                 try:
+
                     img = Image.open(path)
-                    img.thumbnail((760, 420))
+
+                    img.thumbnail((780, 420))
+
                     ctk_img = ctk.CTkImage(
                         light_image=img,
                         dark_image=img,
                         size=img.size,
                     )
-                    label = ctk.CTkLabel(self.preview_box, image=ctk_img, text="")
+
+                    label = ctk.CTkLabel(
+                        self.preview_box,
+                        image=ctk_img,
+                        text=""
+                    )
+
                     label.image = ctk_img
-                    label.pack(pady=(0, 14))
+                    self.preview_images.append(ctk_img)
+
+                    label.pack(
+                        pady=(0, 20)
+                    )
+
                 except OSError:
                     pass
 
+        # =====================================================
+        # CONTEUDO
+        # =====================================================
+
         for item in self.current_news.get("conteudo", []):
+
             tipo = item.get("tipo")
+
+            # ==========================================
+            # TITULO
+            # ==========================================
+
             if tipo == "titulo":
+
                 ctk.CTkLabel(
                     self.preview_box,
                     text=item.get("texto", ""),
-                    font=("Arial", 24, "bold"),
-                ).pack(anchor="w", pady=(16, 8))
+                    font=("Arial", 26, "bold"),
+                    wraplength=780,
+                    justify="left",
+                ).pack(anchor="w", pady=(22, 10))
+
+            # ==========================================
+            # TEXTO
+            # ==========================================
+
             elif tipo == "texto":
-                texto = ler_conteudo_item(self.current_news_path, item)
+
+                texto = ler_conteudo_item(
+                    self.current_news_path,
+                    item
+                )
+
                 ctk.CTkLabel(
                     self.preview_box,
                     text=texto,
                     wraplength=780,
                     justify="left",
-                    font=("Arial", 17),
-                ).pack(anchor="w", pady=8)
-            else:
+                    font=("Arial", 18),
+                ).pack(anchor="w", pady=10)
+
+            # ==========================================
+            # IMAGEM
+            # ==========================================
+
+            elif tipo == "imagem":
+
+                caminho = (
+                    self.current_news_path
+                    / item.get("arquivo", "")
+                )
+
+                if caminho.exists():
+
+                    try:
+
+                        img = Image.open(caminho)
+
+                        img.thumbnail((760, 520))
+
+                        ctk_img = ctk.CTkImage(
+                            light_image=img,
+                            dark_image=img,
+                            size=img.size,
+                        )
+
+                        label = ctk.CTkLabel(
+                            self.preview_box,
+                            image=ctk_img,
+                            text=""
+                        )
+
+                        label.image = ctk_img
+                        self.preview_images.append(ctk_img)
+
+                        label.pack(pady=(16, 6))
+
+                    except OSError:
+
+                        ctk.CTkLabel(
+                            self.preview_box,
+                            text=f"[Erro ao abrir imagem]"
+                        ).pack(anchor="w")
+
+                legenda = item.get("legenda", "").strip()
+
+                if legenda:
+
+                    ctk.CTkLabel(
+                        self.preview_box,
+                        text=legenda,
+                        font=("Arial", 14),
+                        text_color="gray",
+                    ).pack(anchor="center", pady=(0, 16))
+
+            # ==========================================
+            # VIDEO
+            # ==========================================
+
+            elif tipo == "video":
+
                 ctk.CTkLabel(
                     self.preview_box,
-                    text=f"{tipo.upper()}: {item.get('arquivo', '')}",
-                    font=("Arial", 15),
-                    text_color="gray",
-                ).pack(anchor="w", pady=8)
+                    text=f"🎬 VIDEO: {item.get('arquivo', '')}",
+                    font=("Arial", 16),
+                    text_color="#6ea8ff",
+                ).pack(anchor="w", pady=12)
+
+            # ==========================================
+            # AUDIO
+            # ==========================================
+
+            elif tipo == "audio":
+
+                ctk.CTkLabel(
+                    self.preview_box,
+                    text=f"🎵 AUDIO: {item.get('arquivo', '')}",
+                    font=("Arial", 16),
+                    text_color="#8be28b",
+                ).pack(anchor="w", pady=12)
+
+            # ==========================================
+            # DOCUMENTO
+            # ==========================================
+
+            elif tipo == "documento":
+
+                ctk.CTkLabel(
+                    self.preview_box,
+                    text=f"📄 DOCUMENTO: {item.get('arquivo', '')}",
+                    font=("Arial", 16),
+                    text_color="#d8d878",
+                ).pack(anchor="w", pady=12)
                 
     def on_close(self):
         sincronizar_noticias()
