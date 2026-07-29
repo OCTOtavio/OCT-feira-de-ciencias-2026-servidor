@@ -100,6 +100,17 @@
           "imagemCapa": ""
         },
         {
+          "slug": "tragedia_ambiental_em_ibate_policia_encontra_136_animais_mortos_em_chacara_abandonada",
+          "pasta": "noticias/tragedia_ambiental_em_ibate_policia_encontra_136_animais_mortos_em_chacara_abandonada",
+          "estrutura": "noticias/tragedia_ambiental_em_ibate_policia_encontra_136_animais_mortos_em_chacara_abandonada/estrutura.json",
+          "titulo": "Tragédia Ambiental em Ibaté: Polícia encontra 136 animais mortos em chácara abandonada",
+          "resumo": "Operação na zona rural revela cenário devastador de maus-tratos, resulta na prisão preventiva do caseiro e gera multa ambiental histórica de mais de R$ 1 milhão.",
+          "data": "2026-07-28",
+          "categoria": "Meio Ambiente",
+          "subcategoria": "",
+          "imagemCapa": ""
+        },
+        {
           "slug": "incendio_em_sobrado_bairro_67",
           "pasta": "noticias/incendio_em_sobrado_bairro_67",
           "estrutura": "noticias/incendio_em_sobrado_bairro_67/estrutura.json",
