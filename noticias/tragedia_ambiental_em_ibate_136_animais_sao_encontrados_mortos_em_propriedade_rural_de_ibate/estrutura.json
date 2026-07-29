@@ -1,0 +1,34 @@
+{
+  "titulo": "Tragédia Ambiental em Ibaté: 136 animais são encontrados mortos em propriedade rural de Ibaté",
+  "resumo": "Caso de maus-tratos mobiliza órgãos públicos e chama atenção para os impactos do abandono e da falta de proteção aos animais na região.",
+  "data": "2026-07-28",
+  "categoria": "Meio Ambiente",
+  "subcategoria": "",
+  "imagemCapa": "",
+  "conteudo": [
+    {
+      "tipo": "texto",
+      "arquivo": "paragrafos/p1.txt"
+    },
+    {
+      "tipo": "texto",
+      "arquivo": "paragrafos/p2.txt"
+    },
+    {
+      "tipo": "titulo",
+      "texto": "IMPACTO NO DIA A DIA"
+    },
+    {
+      "tipo": "texto",
+      "arquivo": "paragrafos/p3.txt"
+    },
+    {
+      "tipo": "titulo",
+      "texto": "OCT NEWS"
+    },
+    {
+      "tipo": "texto",
+      "arquivo": "paragrafos/p4.txt"
+    }
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "titulo": "Incendio em sobrado bairro 67",
+  "resumo": "FOGOOOOOOOOO",
+  "data": "2026-05-26",
+  "categoria": "Clima em Foco",
+  "subcategoria": "",
+  "imagemCapa": "imagens/download.png",
+  "conteudo": [
+    {
+      "tipo": "texto",
+      "arquivo": "paragrafos/p1.txt"
+    },
+    {
+      "tipo": "imagem",
+      "arquivo": "imagens/download_2.png",
+      "legenda": "Imagem"
+    },
+    {
+      "tipo": "texto",
+      "arquivo": "paragrafos/p2.txt"
+    }
+  ]
+}

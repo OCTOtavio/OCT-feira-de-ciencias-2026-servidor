@@ -1,0 +1,22 @@
+{
+  "titulo": "Incêndio próximo ao recinto de rodeio mobiliza equipes e preocupa moradores em Ibaté",
+  "resumo": "Um incêndio em área de vegetação próximo ao recinto de rodeio de Ibaté mobilizou equipes de emergência e acendeu o alerta para o tempo seco na região.",
+  "data": "2026-04-20",
+  "categoria": "Casos Policiais",
+  "subcategoria": "",
+  "imagemCapa": "imagens/capa-incendio-ibate.png",
+  "conteudo": [
+    {
+      "tipo": "texto",
+      "arquivo": "paragrafos/p1.txt"
+    },
+    {
+      "tipo": "texto",
+      "arquivo": "paragrafos/p2.txt"
+    },
+    {
+      "tipo": "texto",
+      "arquivo": "paragrafos/p3.txt"
+    }
+  ]
+}
